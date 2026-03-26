@@ -8,10 +8,25 @@ with Docker.
 
 ---
 
-## 1. Prepare `.env`
+## 0. Req install
 
 ```bash
-cp .env.example .env
+$ apt install git
+$ curl -fsSL https://get.docker.com -o get-docker.sh && \
+  sudo sh get-docker.sh
+```
+
+## 1. Clone
+
+```bash
+$ git clone https://github.com/milagram/app '/opt/milagram/'
+$ cd /opt/milagram
+```
+
+## 2. Prepare `.env`
+
+```bash
+$ cp .env.example .env
 ```
 
 Required variables:
@@ -33,10 +48,10 @@ Other variables are optional — see the
 
 ---
 
-## 2. Start
+## 3. Start
 
 ```bash
-docker compose up -d --build
+$ docker compose up -d --build
 ```
 
 What happens:
@@ -53,7 +68,7 @@ What happens:
 
 ---
 
-## 3. First Login
+## 4. First Login
 
 Open `http://your-server:8000`. Log in with username
 `owner` (or the value from `ADMIN_USERNAME`), password
@@ -68,7 +83,7 @@ After logging in:
 
 ---
 
-## 4. HTTPS (required for internet access)
+## 5. HTTPS (required for internet access)
 
 Milagram does not include TLS — a reverse proxy is
 needed. The simplest option is
@@ -96,7 +111,7 @@ CORS_ORIGINS=https://milagram.example.com
 
 ---
 
-## 5. Data on Host Disk (optional)
+## 6. Data on Host Disk (optional)
 
 By default, data is stored in a Docker volume. To store
 it on the host disk (convenient for backups and
@@ -120,7 +135,7 @@ writable by this UID.
 
 ---
 
-## 6. Backups
+## 7. Backups
 
 Four methods:
 
@@ -147,7 +162,7 @@ is convenient to schedule via cron:
 
 ---
 
-## 7. Updating
+## 8. Updating
 
 ```bash
 cd milagram
@@ -160,7 +175,7 @@ valid as long as `JWT_SECRET_KEY` has not changed.
 
 ---
 
-## 8. Useful Commands
+## 9. Useful Commands
 
 ```bash
 # Logs
