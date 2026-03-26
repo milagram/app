@@ -1,16 +1,18 @@
 # Stage 1: Build frontend
 FROM node:20-slim AS frontend-build
 WORKDIR /app
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci
-COPY frontend/ ./
 
-# Add the architecture flag to ensure the Linux binary is pulled
-RUN npm ci --include=optional && npm install @rollup/rollup-linux-x64-gnu
+# Copy dependency files
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --include=optional && \
+    npm install @rollup/rollup-linux-x64-gnu
+
+# Copy source and build
+COPY frontend/ ./
+RUN npm run build
 
 # Stage 2: Production
 FROM python:3.12-slim
-
 WORKDIR /app
 
 # Install Python dependencies
