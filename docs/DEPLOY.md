@@ -12,6 +12,8 @@ with Docker.
 
 ```bash
 $ apt install git
+$ curl -fsSL https://get.docker.com -o get-docker.sh && \
+  sudo sh get-docker.sh
 ```
 
 ## 1. Clone
