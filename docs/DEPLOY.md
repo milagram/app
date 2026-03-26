@@ -8,6 +8,12 @@ with Docker.
 
 ---
 
+## 0. Req install
+
+```bash
+$ apt install git
+```
+
 ## 1. Clone
 
 ```bash
