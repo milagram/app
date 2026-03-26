@@ -4,7 +4,9 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 COPY frontend/ ./
-RUN npm run build
+
+# Add the architecture flag to ensure the Linux binary is pulled
+RUN npm ci --include=optional && npm install @rollup/rollup-linux-x64-gnu
 
 # Stage 2: Production
 FROM python:3.12-slim
