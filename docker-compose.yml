@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data/posts
+      - ./data:/data/posts # Tip: Change this line to separate physical disk
     env_file:
       - .env
     restart: unless-stopped
