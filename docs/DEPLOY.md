@@ -11,22 +11,23 @@ with Docker.
 ## 0. Prerequisites
 
 ```bash
-apt install git
-curl -fsSL https://get.docker.com | sh
+$ apt install git
+$ curl -fsSL https://get.docker.com -o get-docker.sh && \
+  sudo sh get-docker.sh
 ```
 
 ## 1. Clone
 
 ```bash
-git clone https://github.com/milagram/app /opt/milagram
-cd /opt/milagram
+$ git clone https://github.com/milagram/app '/opt/milagram/'
+$ cd /opt/milagram
 ```
 
 ## 2. Prepare `.env`
 
 ```bash
-cp .env.example .env
-nano .env
+$ cp .env.example .env
+$ nano .env
 ```
 
 Required variables:
@@ -51,7 +52,7 @@ Other variables are optional — see the
 ## 3. Start
 
 ```bash
-docker compose up -d --build
+$ docker compose up -d --build
 ```
 
 What happens:
