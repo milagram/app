@@ -4,7 +4,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/data/posts # Tip: Change this line to separate physical disk
+      # Production: MUST be a separate physical disk (see docs/DEPLOY.md)
+      - /mnt/data/milagram:/data/posts
+      # Development (single disk): uncomment below, comment above
+      # - ./data:/data/posts
     env_file:
       - .env
     restart: unless-stopped
