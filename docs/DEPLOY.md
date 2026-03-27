@@ -1,32 +1,47 @@
 # Milagram — Production Deployment
 
-**Version:** 1.0
-**Date:** 2026-03-25
+**Version:** 1.1
+**Date:** 2026-03-27
 
 Step-by-step guide for deploying Milagram on a server
 with Docker.
 
 ---
 
-## 0. Req install
+## 0. Prerequisites
 
 ```bash
-$ apt install git
-$ curl -fsSL https://get.docker.com -o get-docker.sh && \
-  sudo sh get-docker.sh
+apt install git
+curl -fsSL https://get.docker.com | sh
 ```
 
-## 1. Clone
+## 1. Prepare Data Disk
+
+See [section 6](#6-data-storage) for detailed
+instructions with examples. Short version:
 
 ```bash
-$ git clone https://github.com/milagram/app '/opt/milagram/'
-$ cd /opt/milagram
+mkfs.ext4 /dev/sdb          # format (only if new!)
+mkdir -p /mnt/data
+mount /dev/sdb /mnt/data
+echo '/dev/sdb /mnt/data ext4 defaults 0 2' >> /etc/fstab
 ```
 
-## 2. Prepare `.env`
+Skip this step if you have a single disk — see
+[No separate disk?](#no-separate-disk)
+
+## 2. Clone
 
 ```bash
-$ cp .env.example .env
+git clone https://github.com/milagram/app /opt/milagram
+cd /opt/milagram
+```
+
+## 3. Prepare `.env`
+
+```bash
+cp .env.example .env
+nano .env
 ```
 
 Required variables:
@@ -48,27 +63,27 @@ Other variables are optional — see the
 
 ---
 
-## 3. Start
+## 4. Start
 
 ```bash
-$ docker compose up -d --build
+docker compose up -d --build
 ```
 
 What happens:
 
 - The Docker image is built (Node.js builds the frontend,
   Python runs the backend)
-- Data is stored in the Docker volume `milagram-data`
+- Data is stored on the data disk at `/mnt/data/milagram`
   (survives restarts and container rebuilds)
 - The container listens on port `8000`
-- Built-in healthcheck monitors `/api/auth/check`
+- Built-in healthcheck monitors `/api/server/ping`
 - Memory limit: 512 MB
 - Log rotation enabled (10 MB × 3 files)
 - Automatic restart on crash (`unless-stopped`)
 
 ---
 
-## 4. First Login
+## 5. First Login
 
 Open `http://your-server:8000`. Log in with username
 `owner` (or the value from `ADMIN_USERNAME`), password
@@ -83,7 +98,7 @@ After logging in:
 
 ---
 
-## 5. HTTPS (required for internet access)
+## 6. HTTPS (required for internet access)
 
 Milagram does not include TLS — a reverse proxy is
 needed. The simplest option is
@@ -111,31 +126,122 @@ CORS_ORIGINS=https://milagram.example.com
 
 ---
 
-## 6. Data on Host Disk (optional)
+## 7. Data Storage Details
 
-By default, data is stored in a Docker volume. To store
-it on the host disk (convenient for backups and
-Obsidian sync), create a file:
+Milagram stores all data (photos, posts, users) on a
+**separate disk** mounted at `/mnt/data`. This is the
+default in docker-compose.yml:
 
 ```yaml
-# docker-compose.override.yml
-services:
-  milagram:
-    volumes:
-      - ./data:/data/posts    # ← folder on your disk
+volumes:
+  - /mnt/data/milagram:/data/posts
 ```
 
-Docker Compose will automatically pick up the override
-file on the next `docker compose up`.
+Why a separate disk:
 
-Permissions: the container runs as user `milagram`
-(you can check the UID via
-`docker exec milagram id`). The host folder must be
-writable by this UID.
+- **Independent backups** — snapshot the data disk without
+  touching the OS
+- **Easy migration** — detach the volume, attach to a new
+  server, done
+- **No risk of filling the OS disk** — photos won't break
+  your system if the disk fills up
+- **Scalable storage** — resize the volume without
+  reinstalling the OS
+
+### Preparing the data disk
+
+**Before cloning the repo**, prepare the data disk.
+
+**Step 1.** Find your data disk:
+
+```bash
+lsblk
+```
+
+Example output:
+
+```
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda       8:0    0   15G  0 disk
+├─sda1    8:1    0 14.9G  0 part /          ← system disk (has /)
+├─sda14   8:14   0    3M  0 part
+└─sda15   8:15   0  124M  0 part /boot/efi
+sdb       8:16   0  100G  0 disk            ← data disk (no mountpoint)
+```
+
+How to tell them apart:
+- **System disk** — has partitions mounted at `/`
+  and `/boot`. Do NOT format this one.
+- **Data disk** — no MOUNTPOINTS column, or mounted
+  at a custom path. This is the one to use.
+
+Typical names: `sdb`, `vdb`, `xvdb`, `nvme1n1` —
+depends on your cloud provider.
+
+**Step 2.** Format and mount:
+
+```bash
+# Format the data disk (ONLY if it's empty/new!)
+mkfs.ext4 /dev/sdb
+
+# Create mount point and mount
+mkdir -p /mnt/data
+mount /dev/sdb /mnt/data
+
+# Add to /etc/fstab for auto-mount on reboot
+echo '/dev/sdb /mnt/data ext4 defaults 0 2' >> /etc/fstab
+```
+
+**Step 3.** Verify:
+
+```bash
+df -h /mnt/data
+```
+
+Expected output:
+
+```
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sdb         98G   24K   93G   1% /mnt/data
+```
+
+Check two things:
+- **Mounted on** = `/mnt/data` (not `/`)
+- **Size** matches your data disk (here 98G from a 100G
+  disk — ext4 reserves ~5% for system needs)
+
+Now proceed to section 1 (Clone) and run
+`docker compose up`. The data folder at
+`/mnt/data/milagram` will be created automatically.
+
+### No separate disk?
+
+If your server has a single disk (local development,
+home server), edit `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./data:/data/posts
+```
+
+This stores data next to docker-compose.yml.
+
+### Permissions
+
+The container runs as user `milagram`. On first start
+the data directory is created automatically. If you see
+permission errors:
+
+```bash
+# Find the container user's UID
+docker exec milagram-milagram-1 id
+# Grant permissions
+sudo chown -R <uid>:<uid> /mnt/data/milagram
+```
 
 ---
 
-## 7. Backups
+## 8. Backups
 
 Four methods:
 
@@ -146,8 +252,8 @@ Four methods:
   curl -X POST http://localhost:8000/api/ext/backup \
     -H "X-API-Key: sk-..."
   ```
-- **Manually**: copy the `data/` folder
-  (or the Docker volume via `docker cp`)
+- **Manually**: copy the `data/` folder — it contains
+  everything (posts, photos, users, settings)
 - **Restore**: copy the folder back, restart the
   container
 
@@ -160,22 +266,26 @@ is convenient to schedule via cron:
   -H "X-API-Key: sk-..." >> /var/log/milagram-backup.log
 ```
 
+If using a separate data disk (see section 7), you can
+also create disk snapshots via your cloud provider's
+API — this is the fastest and most reliable backup method.
+
 ---
 
-## 8. Updating
+## 9. Updating
 
 ```bash
-cd milagram
+cd /opt/milagram
 git pull
 docker compose up -d --build
 ```
 
-Data in the volume is not affected. JWT tokens remain
-valid as long as `JWT_SECRET_KEY` has not changed.
+Data on disk is not affected. JWT tokens remain valid
+as long as `JWT_SECRET_KEY` has not changed.
 
 ---
 
-## 9. Useful Commands
+## 10. Useful Commands
 
 ```bash
 # Logs
@@ -187,14 +297,14 @@ docker compose ps
 # Stop
 docker compose down
 
-# Stop and remove volume (DELETES ALL DATA)
-docker compose down -v
-
 # Enter the container
 docker exec -it milagram-milagram-1 bash
 
 # Data size
-docker exec milagram-milagram-1 du -sh /data/posts
+du -sh ./data
+
+# Health check
+curl http://localhost:8000/api/server/ping
 ```
 
 ---
@@ -206,9 +316,10 @@ docker exec milagram-milagram-1 du -sh /data/posts
 - [ ] `.env` added to `.gitignore` (do not commit passwords)
 - [ ] HTTPS configured (if accessible from the internet)
 - [ ] `CORS_ORIGINS` — your domain is specified (not `*`)
-- [ ] Backups configured (cron or manual)
+- [ ] Backups configured (cron, snapshots, or manual)
 - [ ] Port 8000 is not exposed to the internet directly
   (only through reverse proxy)
+- [ ] Data stored on a separate disk (recommended for VPS)
 
 ---
 
@@ -246,4 +357,15 @@ Check permissions:
 docker exec milagram-milagram-1 id
 # Grant permissions on the folder
 sudo chown -R <uid>:<uid> ./data
+```
+
+### Frontend shows 404
+
+If `FRONTEND_PATH` or `DATA_DIR` are set in your `.env`,
+they override the Dockerfile defaults. For Docker
+deployment, either remove these lines from `.env`
+or set them to:
+```env
+DATA_DIR=/data/posts
+FRONTEND_PATH=/app/frontend
 ```
